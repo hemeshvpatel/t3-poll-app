@@ -12,7 +12,14 @@ export const pollRouter = createTRPCRouter({
     .query(({ ctx, input }) => {
       return ctx.prisma.poll.findUnique({
         where: { id: input.pollId },
-        include: { answers: true },
+        include: {
+          answers: { include: { _count: { select: { responses: true } } } },
+        },
       });
+    }),
+  submitResponse: publicProcedure
+    .input(z.object({ answerId: z.string() }))
+    .mutation(({ ctx, input }) => {
+      return ctx.prisma.response.create({ data: { answerId: input.answerId } });
     }),
 });

@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api } from "~/utils/api";
 
@@ -9,19 +9,36 @@ const PollPage: NextPage = () => {
   const router = useRouter();
   const pollId = router.query.pollId as string;
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
 
   const pollResponse = api.poll.getPoll.useQuery(
     { pollId },
     { enabled: !!pollId }
   );
 
+  const submitResponse = api.poll.submitResponse.useMutation();
+
   console.log(pollResponse);
 
   const poll = pollResponse.data;
 
+  useEffect(() => {
+    setHasAnswered(!!localStorage.getItem(pollId));
+  }, [pollId]);
+
   function handlePollSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selectedAnswerId) return;
+    setHasAnswered(true);
+    submitResponse
+      .mutateAsync({ answerId: selectedAnswerId })
+      .then(() => {
+        localStorage.setItem(pollId, "true");
+        pollResponse.refetch();
+      })
+      .catch((err) => {
+        console.error(err);
+      });
   }
 
   return (
@@ -39,26 +56,41 @@ const PollPage: NextPage = () => {
         ) : (
           <section className="flex flex-col gap-4">
             <h1 className="text-4xl">{poll?.prompt}</h1>
-            <form className="flex flex-col gap-4" onSubmit={handlePollSubmit}>
-              {poll?.answers.map((answer) => {
-                const inputId = `input-${answer.id}`;
-                return (
-                  <fieldset key={answer.id} className="flex gap-2">
-                    <input
-                      id={inputId}
-                      type="radio"
-                      name="answer"
-                      value={answer.id}
-                      onChange={() => setSelectedAnswerId(answer.id)}
-                    />
-                    <label htmlFor={inputId}>{answer.text}</label>
-                  </fieldset>
-                );
-              })}
-              <button className="bg-blue-400 px-3 py-2 text-white hover:bg-blue-500">
-                Submit
-              </button>
-            </form>
+            {hasAnswered ? (
+              <div>
+                {poll?.answers.map((answer) => {
+                  return (
+                    <div>
+                      {answer.text}: {answer._count.responses} votes
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <form className="flex flex-col gap-4" onSubmit={handlePollSubmit}>
+                {poll?.answers.map((answer) => {
+                  const inputId = `input-${answer.id}`;
+                  return (
+                    <fieldset key={answer.id} className="flex gap-2">
+                      <input
+                        id={inputId}
+                        type="radio"
+                        name="answer"
+                        value={answer.id}
+                        onChange={() => setSelectedAnswerId(answer.id)}
+                      />
+                      <label htmlFor={inputId}>{answer.text}</label>
+                    </fieldset>
+                  );
+                })}
+                <button
+                  className="bg-blue-400 px-3 py-2 text-white hover:bg-blue-500 disabled:bg-gray-700 disabled:hover:bg-gray-700"
+                  disabled={!selectedAnswerId}
+                >
+                  Submit
+                </button>
+              </form>
+            )}
           </section>
         )}
       </main>
