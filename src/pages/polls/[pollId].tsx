@@ -34,7 +34,7 @@ const PollPage: NextPage = () => {
       .mutateAsync({ answerId: selectedAnswerId })
       .then(() => {
         localStorage.setItem(pollId, "true");
-        pollResponse.refetch();
+        return pollResponse.refetch();
       })
       .catch((err) => {
         console.error(err);
@@ -60,7 +60,7 @@ const PollPage: NextPage = () => {
               <div>
                 {poll?.answers.map((answer) => {
                   return (
-                    <div>
+                    <div key={answer.id}>
                       {answer.text}: {answer._count.responses} votes
                     </div>
                   );
